@@ -1,0 +1,326 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Sidebar from '../../components/Sidebar.astro';
+import { sanityClient } from 'sanity:client';
+import { PortableText } from 'astro-portabletext';
+
+interface ProjectListItem {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  date?: string;
+  tags?: string[];
+}
+
+export async function getStaticPaths() {
+  const projects = await sanityClient.fetch<{ slug: { current: string } }[]>(`
+    *[_type == "project" && defined(slug.current)]{
+      slug
+    }
+  `);
+
+  return projects.map((p) => ({
+    params: { slug: p.slug.current },
+  }));
+}
+
+const { slug } = Astro.params;
+
+const data = await sanityClient.fetch<{
+  activeProject: any;
+  allProjects: ProjectListItem[];
+}>(`
+  {
+    "activeProject": *[_type == "project" && slug.current == $slug][0]{
+      _id,
+      title,
+      date,
+      tags,
+      content[]{
+        _type,
+        _key,
+        // Bild-Felder
+        alt,
+        caption,
+        "url": asset->url,
+        // Text-Felder
+        text,
+        // VideoBlock-Felder
+        "videoUrl": videoFile.asset->url,
+        isGifStyle
+      }
+    },
+    "allProjects": *[_type == "project"] | order(date desc, _createdAt desc) {
+      _id,
+      title,
+      slug,
+      date,
+      tags
+    }
+  }
+`, { slug });
+
+const { activeProject, allProjects: rawAllProjects } = data;
+
+if (!activeProject) {
+  return Astro.redirect('/404');
+}
+
+// Datum auf 4-stellige Jahreszahl formatieren für Sidebar
+const allProjects = rawAllProjects.map((project) => ({
+  ...project,
+  date: project.date ? new Date(project.date).getFullYear().toString() : undefined,
+}));
+
+const contentBlocks = activeProject.content || [];
+
+// Desktop: Zick-Zack Aufteilung
+const leftColumn = contentBlocks.filter((_: any, index: number) => index % 2 === 0);
+const rightColumn = contentBlocks.filter((_: any, index: number) => index % 2 !== 0);
+---
+
+<Layout title={`${activeProject.title} — Portfolio`}>
+  <main class="projects-layout">
+    <Sidebar projects={allProjects} activeSlug={slug} transition:persist="main-sidebar"/>
+
+    <section class="projects-image-feed">
+      
+      <div class="desktop-columns">
+        
+        <div class="feed-column">
+          {leftColumn.map((block: any) => (
+            block._type === 'image' ? (
+              <div class="detail-item image-item">
+                <div class="image-wrapper">
+                  <img 
+                    src={block.url} 
+                    alt={block.alt || ''} 
+                    class="lightbox-trigger"
+                    loading="lazy" 
+                    decoding="async" 
+                  />
+                </div>
+                {block.caption && <span class="image-caption">{block.caption}</span>}
+              </div>
+            ) : block._type === 'videoBlock' && block.videoUrl ? (
+              <div class="detail-item video-item">
+                <div class="image-wrapper">
+                  <video
+                    src={block.videoUrl}
+                    autoplay={block.isGifStyle ?? true}
+                    loop={block.isGifStyle ?? true}
+                    muted={block.isGifStyle ?? true}
+                    controls={!block.isGifStyle}
+                    playsinline
+                    class="detail-video"
+                  ></video>
+                </div>
+                {block.caption && <span class="image-caption">{block.caption}</span>}
+              </div>
+            ) : block._type === 'textBlock' ? (
+              <div class="detail-item text-item">
+                <PortableText value={block.text} />
+              </div>
+            ) : null
+          ))}
+        </div>
+
+        <div class="feed-column">
+          {rightColumn.map((block: any) => (
+            block._type === 'image' ? (
+              <div class="detail-item image-item">
+                <div class="image-wrapper">
+                  <img 
+                    src={block.url} 
+                    alt={block.alt || ''} 
+                    class="lightbox-trigger"
+                    loading="lazy" 
+                    decoding="async" 
+                  />
+                </div>
+                {block.caption && <span class="image-caption">{block.caption}</span>}
+              </div>
+            ) : block._type === 'videoBlock' && block.videoUrl ? (
+              <div class="detail-item video-item">
+                <div class="image-wrapper">
+                  <video
+                    src={block.videoUrl}
+                    autoplay={block.isGifStyle ?? true}
+                    loop={block.isGifStyle ?? true}
+                    muted={block.isGifStyle ?? true}
+                    controls={!block.isGifStyle}
+                    playsinline
+                    class="detail-video"
+                  ></video>
+                </div>
+                {block.caption && <span class="image-caption">{block.caption}</span>}
+              </div>
+            ) : block._type === 'textBlock' ? (
+              <div class="detail-item text-item">
+                <PortableText value={block.text} />
+              </div>
+            ) : null
+          ))}
+        </div>
+
+      </div> <div class="mobile-single-feed">
+        {contentBlocks.map((block: any) => (
+          block._type === 'image' ? (
+            <div class="detail-item image-item">
+              <div class="image-wrapper">
+                <img 
+                  src={block.url} 
+                  alt={block.alt || ''} 
+                  class="lightbox-trigger"
+                  loading="lazy" 
+                  decoding="async" 
+                />
+              </div>
+              {block.caption && <span class="image-caption">{block.caption}</span>}
+            </div>
+          ) : block._type === 'videoBlock' && block.videoUrl ? (
+            <div class="detail-item video-item">
+              <div class="image-wrapper">
+                <video
+                  src={block.videoUrl}
+                  autoplay={block.isGifStyle ?? true}
+                  loop={block.isGifStyle ?? true}
+                  muted={block.isGifStyle ?? true}
+                  controls={!block.isGifStyle}
+                  playsinline
+                  class="detail-video"
+                ></video>
+              </div>
+              {block.caption && <span class="image-caption">{block.caption}</span>}
+            </div>
+          ) : block._type === 'textBlock' ? (
+            <div class="detail-item text-item">
+              <PortableText value={block.text} />
+            </div>
+          ) : null
+        ))}
+      </div>
+
+    </section>
+  </main>
+
+  <dialog id="lightbox" class="lightbox">
+    <button id="lightbox-close" class="lightbox-close" aria-label="Schließen">&times;</button>
+    <img id="lightbox-img" src="" alt="" />
+  </dialog>
+</Layout>
+
+<style>
+  /* ====================================================== */
+  /* 1. LAYOUT & GRID STRUCTURE                             */
+  /* ====================================================== */
+
+  .projects-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 300px) 1fr;
+    gap: 2.5rem; /* Abstand Sidebar Projektfeed */
+    align-items: start;
+    padding: 0rem;
+  }
+
+  .projects-image-feed {
+    grid-column: 2;
+  }
+
+  /* DESKTOP LAYOUT (2-Spalten-Flexbox) */
+  .desktop-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem; /* Kachel Abstand Horizontal */
+    align-items: start;
+  }
+
+  .feed-column {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem; /* Kachel Abstand Vertikal */
+  }
+
+  /* MOBILE LAYOUT (1 Spalte) */
+  .mobile-single-feed {
+    display: none;
+    flex-direction: column;
+    gap: 2rem; /* Kachel Abstand Horizontal (Mobile) */
+  }
+
+  /* ====================================================== */
+  /* 2. DETAIL CONTENT STYLING                              */
+  /* ====================================================== */
+
+  .detail-item {
+    width: 100%;
+  }
+
+  .image-wrapper {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+
+  .detail-item.image-item img,
+  .detail-video {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  .image-caption {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-color);
+    opacity: 0.7;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+  }
+
+  /* Textblöcke / PortableText Styling */
+  .detail-item.text-item {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-color);
+  }
+
+  :global(.detail-item.text-item p) {
+    margin-bottom: 1.25rem;
+  }
+
+  :global(.detail-item.text-item p:last-child) {
+    margin-bottom: 0;
+  }
+
+  :global(.detail-item.text-item a) {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ====================================================== */
+  /* 3. RESPONSIVE BREAKPOINTS                              */
+  /* ====================================================== */
+
+  @media (max-width: 900px) {
+    .projects-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .projects-image-feed {
+      grid-column: 1;
+    }
+
+    /* Auf Mobile/Tablets schalten wir um: */
+    .desktop-columns {
+      display: none; /* 2-Spalten-Layout ausblenden */
+    }
+
+    .mobile-single-feed {
+      display: flex; /* 1-Spalten-Layout aktivieren */
+    }
+  }
+</style>

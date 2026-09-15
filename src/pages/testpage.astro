@@ -1,0 +1,320 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { sanityClient } from 'sanity:client';
+
+// TypeScript Interfaces (Datum ergänzt)
+interface Project {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  tags?: string[];
+  imageUrl?: string;
+  date?: string; // Falls in Sanity ein Datums- oder Jahresfeld existiert
+}
+
+// Fetch Projekte & Tags aus Sanity
+const { projects, rawTags } = await sanityClient.fetch<{
+  projects: Project[];
+  rawTags: string[];
+}>(`
+  {
+    "projects": *[_type == "project"] | order(_createdAt desc) {
+      _id,
+      title,
+      slug,
+      tags,
+      "imageUrl": mainImage.asset->url,
+      "date": date // Falls dein Feld in Sanity 'publishedAt' oder 'year' heißt, hier anpassen (z.B. "date": publishedAt)
+    },
+    "rawTags": *[_type == "project" && defined(tags)].tags[]
+  }
+`);
+
+const uniqueTags = [...new Set(rawTags || [])].sort((a, b) => a.localeCompare(b));
+---
+
+<Layout title="Ricardo — Designer">
+
+  <main class="projects-layout">
+
+    <!-- 1. Tag-Filter (Positioniert in Spalte 2) -->
+    <section class="tag-filter-container">
+      <button class="tag-chip active" data-filter="all">Alle</button>
+      {uniqueTags.map((tag) => (
+        <button class="tag-chip" data-filter={tag}>{tag}</button>
+      ))}
+    </section>
+
+    <!-- 2. Linke Navigation (Sidebar) -->
+    <aside class="projects-list-sidebar">
+      <ul class="projects-text-list">
+        {projects.map((project) => (
+          <li class="project-text-item" data-tags={JSON.stringify(project.tags || [])}>
+            <a href={`/project/${project.slug.current}`}>
+              {project.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+
+    <!-- 3. Rechte Spalte: Bild-Feed -->
+    <section class="projects-image-feed">
+      {projects.map((project) => (
+        <article class="project-card" data-tags={JSON.stringify(project.tags || [])}>
+
+          <a href={`/project/${project.slug.current}`} class="project-link">
+
+            <div class="image-wrapper">
+              {project.imageUrl ? (
+                <img 
+                  src={project.imageUrl} 
+                  alt={project.title} 
+                  loading="lazy" 
+                  decoding="async" 
+                />
+              ) : (
+                <div class="image-placeholder">Kein Bild geladen</div>
+              )}
+            </div>
+            
+            <div class="project-meta">
+              <span class="project-title">{project.title}</span>
+              {/* Zeigt das Jahr an (z.B. "2026"), oder schneidet aus YYYY-MM-DD die ersten 4 Zeichen heraus */}
+              <span class="project-date">
+                {project.date ? project.date.slice(0, 4) : ''}
+              </span>
+            </div>
+          </a>
+        </article>
+      ))}
+    </section>
+
+  </main>
+
+</Layout>
+
+<!-- Client-seitige Filterlogik -->
+<script>
+  const filterButtons = document.querySelectorAll<HTMLButtonElement>('.tag-chip');
+  const projectCards = document.querySelectorAll<HTMLElement>('.project-card');
+  const projectTextItems = document.querySelectorAll<HTMLElement>('.project-text-item');
+
+  filterButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const selectedFilter = button.getAttribute('data-filter');
+
+      // Active state auf Buttons umschalten
+      filterButtons.forEach((btn) => btn.classList.remove('active'));
+      button.classList.add('active');
+
+      // Bildkacheln filtern
+      projectCards.forEach((card) => {
+        const cardTags: string[] = JSON.parse(card.getAttribute('data-tags') || '[]');
+        card.style.display = (selectedFilter === 'all' || cardTags.includes(selectedFilter!)) ? 'flex' : 'none';
+      });
+
+      // Textliste links filtern
+      projectTextItems.forEach((item) => {
+        const itemTags: string[] = JSON.parse(item.getAttribute('data-tags') || '[]');
+        item.style.display = (selectedFilter === 'all' || itemTags.includes(selectedFilter!)) ? 'block' : 'none';
+      });
+    });
+  });
+</script>
+
+<style>
+  /* ====================================================== */
+  /* 1. LAYOUT & GRID STRUCTURE                            */
+  /* ====================================================== */
+
+  .projects-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 300px) 1fr;
+    gap: 1.5rem 3rem;
+    align-items: start;
+    padding-top: 1rem;
+  }
+
+  /* ====================================================== */
+  /* 2. TAG FILTER (Spalte 2)                              */
+  /* ====================================================== */
+
+  .tag-filter-container {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
+    padding: 0.5rem 0;
+    background: transparent;
+  }
+
+  .tag-chip {
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tag-chip:hover,
+  .tag-chip.active {
+    background-color: var(--text-color);
+    color: var(--bg-color);
+    border-color: var(--text-color);
+  }
+
+  /* ====================================================== */
+  /* 3. LINKE SPALTE (Text-Liste)                           */
+  /* ====================================================== */
+
+  .projects-list-sidebar {
+    grid-column: 1;
+    position: sticky;
+    top: 2rem;
+  }
+
+  .projects-text-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .project-text-item a {
+    color: var(--text-color);
+    text-decoration: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+
+    font-size: 1.5rem;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+
+  .project-text-item a:hover {
+    opacity: 1;
+  }
+
+  /* ====================================================== */
+  /* 4. RECHTE SPALTE (Bild-Feed)                           */
+  /* ====================================================== */
+
+  .projects-image-feed {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2.5rem 1.5rem;
+    align-items: start; /* Verhindert, dass Kacheln in der Höhe auf die gleiche Länge gestreckt werden */
+  }
+
+  .project-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .project-link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .image-wrapper {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 2px;
+    background-color: transparent; /* Kein Rahmen/Hintergrund nötig */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+.image-wrapper img {
+    width: 100%;
+    height: auto; /* Bild behält sein natürliches Seitenverhältnis */
+    /* max-height: 70vh; /* Die maximale vertikale Begrenzung (z.B. 70% der Bildschirmhöhe) */
+    object-fit: contain; /* Bild wird nie abgeschnitten */
+    display: block;
+    transition: transform 0.4s ease;
+  }
+
+  .project-link:hover .image-wrapper img {
+    transform: scale(1.02);
+  }
+
+  .image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+    opacity: 0.5;
+    font-size: 0.875rem;
+  }
+
+  /* Metadaten-Zeile unter den Bildern */
+  .project-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    text-transform: uppercase;
+    
+    /* Gemeinsames Styling für Titel und Datum */
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .project-title {
+    /* Übernimmt automatisch die Werte aus .project-meta */
+  }
+
+  .project-date {
+    /* Binds ebenfalls an die gleichen Text-Eigenschaften */
+    opacity: 0.8; /* Optional: leicht transparenter für dezenten Kontrast */
+  }
+
+  
+  /* ====================================================== */
+  /* 5. RESPONSIVE BREAKPOINTS                              */
+  /* ====================================================== */
+
+  @media (max-width: 900px) {
+    .projects-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .tag-filter-container,
+    .projects-image-feed {
+      grid-column: 1;
+    }
+
+    .projects-list-sidebar {
+      display: none;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .projects-image-feed {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+  }
+</style>

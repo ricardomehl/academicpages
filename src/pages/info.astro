@@ -1,0 +1,241 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import { sanityClient } from 'sanity:client';
+
+import { Image } from 'astro:assets';
+import passImage from '../assets/Images/pass.png';
+
+
+interface Project {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  tags?: string[];
+  imageUrl?: string;
+  date?: string;
+}
+
+// Wir holen weiterhin die Projekte, damit die gelinkte Sidebar links wie gewohnt rendert!
+const { projects } = await sanityClient.fetch<{ projects: Project[] }>(`
+  {
+    "projects": *[_type == "project"] | order(date desc, _createdAt desc) {
+      _id,
+      title,
+      slug,
+      tags,
+      "imageUrl": mainImage.asset->url,
+      "date": date
+    }
+  }
+`);
+---
+
+<Layout title="Info — Ricardo Mehl">
+  <main class="projects-layout">
+    
+    <!-- Deine persistente Sidebar links bleibt unverändert -->
+    <Sidebar projects={projects} transition:persist="main-sidebar" />
+
+    <section class="about-content">
+  <div class="cv-flex-container">
+    
+    <!-- CV LISTE LINKS -->
+    <div class="cv-table">
+      
+      <!-- BILDUNG -->
+      <div class="cv-row">
+        <div class="cv-label">Bildung</div>
+        <div class="cv-entries">
+          <div class="entry">
+            <strong>M.A. Design for Digital Futures TH OHM</strong>
+            <span class="date">2024 - 2026</span>
+          </div>
+          <div class="entry">
+            <strong>B.A. Design TH OHM</strong>
+            <span class="date">2019 - 2023</span>
+          </div>
+          <div class="entry">
+            <strong>Abitur Lothar-von-Faber FOS Nürnberg</strong>
+            <span class="date">2015 - 2018</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BERUFSERFAHRUNG -->
+      <div class="cv-row">
+        <div class="cv-label">Berufserfahrung</div>
+        <div class="cv-entries">
+          <div class="entry">
+            <strong>Nurenberg Campus of Technology</strong>
+            <p>Werkstudent<br />3D Visualisierung, Grafikdesign</p>
+            <span class="date">2024 - 2026</span>
+          </div>
+          <div class="entry">
+            <strong>HWMD</strong>
+            <p>Werkstudent<br />3D Motion Design</p>
+            <span class="date">2023 - 2024</span>
+          </div>
+          <div class="entry">
+            <strong>Deerstreet</strong>
+            <p>Praktikum & Werkstudent<br />3D Motion Design & Grafikdesign</p>
+            <span class="date">2022 - 2023</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKILLS -->
+      <div class="cv-row">
+        <div class="cv-label">Skills</div>
+        <div class="cv-entries">
+          <ul class="skills-list">
+            <li>Houdini</li>
+            <li>Blender</li>
+            <li>Adobe Suite</li>
+            <li>Touchdesigner</li>
+            <li>Figma</li>
+            <li>ComfyUI</li>
+            <li>Generative AI-Pipelines (Stable Diffusion)</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+
+
+    <!-- BILD RECHTS -->
+    <div class="cv-visual">
+        <Image src={passImage} alt="Ricardo Mehl ID" />
+    </div>
+
+  </div>
+</section>
+
+  </main>
+</Layout>
+
+
+
+
+
+<style>
+  /* ====================================================== */
+  /* 1. SEITEN-LAYOUT                                       */
+  /* ====================================================== */
+
+  .projects-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 300px) 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    padding: 0;
+    width: 100%;
+  }
+
+  .about-content {
+    grid-column: 2;
+    width: 100%;
+  }
+
+  /* ====================================================== */
+  /* 2. ABOUT CONTENT WITH GRID (Balancierte 3 Spalten)     */
+  /* ====================================================== */
+
+  .cv-flex-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem 2.5rem; 
+    width: 100%;
+  }
+
+  /* Löst Hüll-DIVs auf, damit Kinder direkt ins 3-Spalten-Grid greifen */
+  .cv-table {
+    display: contents;
+  }
+
+  .cv-row {
+    display: contents;
+  }
+
+  /* Spalte 1: Beschriftung ganz links */
+  .cv-label {
+    grid-column: 1;
+    font-weight: 400;
+    opacity: 0.8;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Spalte 2: Einträge in der Mitte */
+  .cv-entries {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  /* Spalte 3: Bild ganz rechts */
+  .cv-visual {
+    grid-column: 3;
+    grid-row: 1 / span 3; /* Erstreckt sich über alle 3 CV-Zeilen */
+    width: 100%;
+    justify-self: end; /* Bündig zum rechten Rand */
+    max-width: 320px;   /* Verhindert, dass das Bild riesig skaliert */
+  }
+
+  .cv-visual img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    border-radius: 2px;
+  }
+
+  /* Typografie & Details */
+  .entry strong { display: block; font-weight: 500; }
+  .entry p { margin: 0.25rem 0 0.5rem 0; opacity: 0.8; line-height: 1.4; }
+  .entry .date { display: block; opacity: 0.7; font-size: 0.85rem; }
+  .skills-list { list-style: none; padding: 0; margin: 0; }
+  .skills-list li { line-height: 1.6; }
+
+  /* ====================================================== */
+  /* 3. RESPONSIVE DESIGN (Tablets & Mobile)                */
+  /* ====================================================== */
+
+  /* Wenn die Sidebar bei 900px verschwindet: Content übernimmt volle Breite */
+  @media (max-width: 900px) {
+    .projects-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .about-content {
+      grid-column: 1;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .cv-flex-container {
+      /* Auf kleineren Screens 2 Spalten (Bild rutscht nach unten) */
+      grid-template-columns: 140px 1fr;
+    }
+
+    .cv-visual {
+      grid-column: 1 / span 2;
+      grid-row: auto;
+      max-width: 320px;
+      margin-bottom: 2rem;
+      justify-self: start;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .cv-flex-container {
+      grid-template-columns: 1fr;
+    }
+
+    .cv-label, .cv-entries, .cv-visual {
+      grid-column: 1;
+    }
+  }
+</style>

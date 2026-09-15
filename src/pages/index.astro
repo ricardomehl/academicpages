@@ -1,0 +1,376 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import TagFilter from '../components/TagFilter.astro';
+import { sanityClient } from 'sanity:client';
+
+// 1. Interfaces für die flexible Media-Struktur
+interface CoverMedia {
+  type: 'image' | 'video';
+  imageUrl?: string;
+  imageAlt?: string;
+  videoUrl?: string;
+}
+
+interface Project {
+  _id: string;
+  title: string;
+  slug: { current: string };
+  tags?: string[];
+  coverMedia?: CoverMedia;
+  date?: string; // Hält am Ende nur die Jahreszahl (z.B. "2026")
+}
+
+// 2. GROQ-Abfrage an das neue coverMedia-Feld anpassen
+const { projects: fetchedProjects, rawTags } = await sanityClient.fetch<{
+  projects: Project[];
+  rawTags: string[];
+}>(`
+  {
+    "projects": *[_type == "project"] | order(date desc, _createdAt desc) {
+      _id,
+      title,
+      slug,
+      tags,
+      "date": date,
+      coverMedia {
+        type,
+        "imageUrl": image.asset->url,
+        "imageAlt": image.alt,
+        "videoUrl": video.asset->url
+      }
+    },
+    "rawTags": *[_type == "project" && defined(tags)].tags[]
+  }
+`);
+
+// 3. Datum umwandeln: Extrahiert nur das Jahr (z.B. "2026-01-01" -> "2026")
+const projects = fetchedProjects.map((project) => ({
+  ...project,
+  date: project.date ? new Date(project.date).getFullYear().toString() : undefined,
+}));
+
+const uniqueTags = [...new Set(rawTags || [])].sort((a, b) => a.localeCompare(b));
+
+// Desktop: Zick-Zack Aufteilung
+const leftProjects = projects.filter((_, index) => index % 2 === 0);
+const rightProjects = projects.filter((_, index) => index % 2 !== 0);
+---
+
+
+<Layout title="Portfolio">
+  <main class="projects-layout">
+    <Sidebar projects={projects} transition:persist="main-sidebar" />
+
+    <section class="projects-feed">
+      <TagFilter tags={uniqueTags} />
+
+      <!-- DESKTOP FEED (2 Spalten Zick-Zack) -->
+      <div class="desktop-columns">
+        <div class="feed-column">
+          {leftProjects.map((project) => (
+            <a 
+              href={`/project/${project.slug.current}`} 
+              class="project-card"
+              data-tags={JSON.stringify(project.tags || [])}
+            >
+              <div class="media-wrapper">
+                {project.coverMedia?.type === 'video' && project.coverMedia.videoUrl ? (
+                  <video
+                    src={project.coverMedia.videoUrl}
+                    autoplay
+                    loop
+                    muted
+                    playsinline
+                    class="thumbnail-media"
+                  ></video>
+                ) : project.coverMedia?.imageUrl ? (
+                  <img
+                    src={project.coverMedia.imageUrl}
+                    alt={project.coverMedia.imageAlt || project.title}
+                    loading="lazy"
+                    decoding="async"
+                    class="thumbnail-media"
+                  />
+                ) : (
+                  <div class="image-placeholder">Kein Medium</div>
+                )}
+              </div>
+              <div class="project-meta">
+                <h2 class="project-title">{project.title}</h2>
+                {project.date && <span class="project-date">{project.date}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+
+        <div class="feed-column">
+          {rightProjects.map((project) => (
+            <a 
+              href={`/project/${project.slug.current}`} 
+              class="project-card"
+              data-tags={JSON.stringify(project.tags || [])}
+            >
+              <div class="media-wrapper">
+                {project.coverMedia?.type === 'video' && project.coverMedia.videoUrl ? (
+                  <video
+                    src={project.coverMedia.videoUrl}
+                    autoplay
+                    loop
+                    muted
+                    playsinline
+                    class="thumbnail-media"
+                  ></video>
+                ) : project.coverMedia?.imageUrl ? (
+                  <img
+                    src={project.coverMedia.imageUrl}
+                    alt={project.coverMedia.imageAlt || project.title}
+                    loading="lazy"
+                    decoding="async"
+                    class="thumbnail-media"
+                  />
+                ) : (
+                  <div class="image-placeholder">Kein Medium</div>
+                )}
+              </div>
+              <div class="project-meta">
+                <h2 class="project-title">{project.title}</h2>
+                {project.date && <span class="project-date">{project.date}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- MOBILE FEED (1 Spalte) -->
+      <div class="mobile-single-feed">
+        {projects.map((project) => (
+          <a 
+            href={`/project/${project.slug.current}`} 
+            class="project-card"
+            data-tags={JSON.stringify(project.tags || [])}
+          >
+            <div class="media-wrapper">
+              {project.coverMedia?.type === 'video' && project.coverMedia.videoUrl ? (
+                <video
+                  src={project.coverMedia.videoUrl}
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                  class="thumbnail-media"
+                ></video>
+              ) : project.coverMedia?.imageUrl ? (
+                <img
+                  src={project.coverMedia.imageUrl}
+                  alt={project.coverMedia.imageAlt || project.title}
+                  loading="lazy"
+                  decoding="async"
+                  class="thumbnail-media"
+                />
+              ) : (
+                <div class="image-placeholder">Kein Medium</div>
+              )}
+            </div>
+            <div class="project-meta">
+              <h2 class="project-title">{project.title}</h2>
+              {project.date && <span class="project-date">{project.date}</span>}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<!-- Filter-Tags Script: Verteilt die Kacheln dynamisch neu auf zwei Spalten -->
+<script>
+  function initTagFilter() {
+    const filterButtons = document.querySelectorAll<HTMLButtonElement>('.tag-chip');
+    const projectTextItems = document.querySelectorAll<HTMLElement>('.project-text-item');
+
+    // Die beiden Spalten-Container für Desktop holen
+    const desktopColumns = document.querySelectorAll<HTMLElement>('.desktop-columns .feed-column');
+    const leftColumn = desktopColumns[0];
+    const rightColumn = desktopColumns[1];
+
+    if (filterButtons.length === 0) return;
+
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const selectedFilter = button.getAttribute('data-filter');
+
+        filterButtons.forEach((btn) => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        // 1. Textliste in der Sidebar filtern
+        projectTextItems.forEach((item) => {
+          const itemTags: string[] = JSON.parse(item.getAttribute('data-tags') || '[]');
+          item.style.display = (selectedFilter === 'all' || itemTags.includes(selectedFilter!)) ? 'block' : 'none';
+        });
+
+        // 2. Sichtbarkeit aller Desktop-Kacheln bestimmen
+        const visibleDesktopCards: HTMLElement[] = [];
+
+        if (leftColumn && rightColumn) {
+          const allDesktopCards = document.querySelectorAll<HTMLElement>('.desktop-columns .project-card');
+          
+          allDesktopCards.forEach((card) => {
+            const cardTags: string[] = JSON.parse(card.getAttribute('data-tags') || '[]');
+            const isVisible = (selectedFilter === 'all' || cardTags.includes(selectedFilter!));
+            
+            if (isVisible) {
+              card.style.display = 'block';
+              visibleDesktopCards.push(card);
+            } else {
+              card.style.display = 'none';
+            }
+          });
+
+          // 3. Sichtbare Kacheln auf Desktop im Zick-Zack neu auf Spalte 1 & 2 verteilen
+          visibleDesktopCards.forEach((card, index) => {
+            if (index % 2 === 0) {
+              leftColumn.appendChild(card);
+            } else {
+              rightColumn.appendChild(card);
+            }
+          });
+        }
+
+        // 4. Mobile-Kacheln filtern (brauchen keine Neuverteilung, da 1-spaltig)
+        const mobileCards = document.querySelectorAll<HTMLElement>('.mobile-single-feed .project-card');
+        mobileCards.forEach((card) => {
+          const cardTags: string[] = JSON.parse(card.getAttribute('data-tags') || '[]');
+          const isVisible = (selectedFilter === 'all' || cardTags.includes(selectedFilter!));
+          card.style.display = isVisible ? 'block' : 'none';
+        });
+      });
+    });
+  }
+
+  document.addEventListener('astro:page-load', initTagFilter);
+</script>
+
+<style>
+  /* ====================================================== */
+  /* 1. LAYOUT & GRID STRUCTURE                             */
+  /* ====================================================== */
+
+  .projects-layout {
+    display: grid;
+    grid-template-columns: minmax(200px, 300px) 1fr;
+    gap: 2.5rem; /* Abstand Sidebar Projektfeed */
+    align-items: start;
+    padding: 0rem;
+  }
+
+  .projects-feed {
+    grid-column: 2;
+  }
+
+  /* DESKTOP LAYOUT (2-Spalten-Grid) */
+  .desktop-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem; /* Kachel Abstand Horizontal */
+    align-items: start;
+  }
+
+  .feed-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Kachel Abstand Vertikal */
+  }
+
+  /* MOBILE LAYOUT (1 Spalte) */
+  .mobile-single-feed {
+    display: none;
+    flex-direction: column;
+    gap: 2rem; /* Kachel Abstand (Mobile) */
+  }
+
+  /* ====================================================== */
+  /* 2. PROJECT CARD STYLING                                */
+  /* ====================================================== */
+
+  .project-card {
+    width: 100%;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem; /* Titel Abstand (10px) */
+  }
+
+  .media-wrapper {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 2px;
+  }
+
+  .thumbnail-media {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s ease;
+  }
+
+  .project-card:hover .thumbnail-media {
+    transform: scale(1.02);
+  }
+
+  .image-placeholder {
+    width: 100%;
+    padding: 3rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color, #000);
+    opacity: 0.5;
+    font-size: 0.875rem;
+  }
+
+  .project-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    text-transform: uppercase;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .project-title {
+    margin: 0;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .project-date {
+    opacity: 0.8;
+  }
+
+  /* ====================================================== */
+  /* 3. RESPONSIVE BREAKPOINTS                              */
+  /* ====================================================== */
+
+  @media (max-width: 900px) {
+    .projects-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .projects-feed {
+      grid-column: 1;
+    }
+
+    /* Auf Mobile/Tablets schalten wir um: */
+    .desktop-columns {
+      display: none; /* 2-Spalten-Layout ausblenden */
+    }
+
+    .mobile-single-feed {
+      display: flex; /* 1-Spalten-Layout aktivieren */
+    }
+  }
+</style>

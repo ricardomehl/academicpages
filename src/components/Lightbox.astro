@@ -1,0 +1,279 @@
+---
+// src/components/Lightbox.astro
+---
+
+<!-- Das HTML-Modal für den Lightbox-Overlay -->
+<div id="lightbox" class="lightbox">
+  <button id="lb-close" class="lb-btn" aria-label="Schließen">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </svg>
+  </button>
+  <button id="lb-prev" class="lb-btn" aria-label="Vorheriges Bild">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M15 5l-7 7 7 7"/>
+    </svg>
+  </button>
+  <img id="lb-image" src="" alt="" />
+  <button id="lb-next" class="lb-btn" aria-label="Nächstes Bild">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M9 5l7 7-7 7"/>
+    </svg>
+  </button>
+  <div id="lb-counter"></div>
+</div>
+
+<script>
+  // TypeScript Typ-Erweiterung für das Bild-Element
+  interface LightboxImageElement extends HTMLImageElement {
+    _lb_click_handler?: EventListener;
+  }
+
+  function initLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const lbImage = document.getElementById('lb-image') as HTMLImageElement | null;
+    const lbCounter = document.getElementById('lb-counter');
+    const closeBtn = document.getElementById('lb-close');
+    const prevBtn = document.getElementById('lb-prev');
+    const nextBtn = document.getElementById('lb-next');
+
+    if (!lightbox || !lbImage || !lbCounter) return;
+
+    let images: LightboxImageElement[] = [];
+    let currentIndex = 0;
+
+    function disableScroll() {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflowY = 'scroll';
+    }
+
+    function enableScroll() {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflowY = '';
+    }
+
+    // Hilfsfunktion: Holt DYNAMISCH nur die aktuell sichtbaren Bilder im DOM
+    function getVisibleImages(): LightboxImageElement[] {
+      const allImages = Array.from(
+        document.querySelectorAll<HTMLImageElement>('img.lightbox-trigger')
+      );
+      // offsetParent !== null ist true für alle sichtbaren Elemente (bei display: none ist es null)
+      return allImages.filter(img => img.offsetParent !== null) as LightboxImageElement[];
+    }
+
+    function setupClickHandlers() {
+      // Event Listener an ALLE lightbox-trigger hängen
+      const allImages = document.querySelectorAll<HTMLImageElement>('img.lightbox-trigger');
+
+      allImages.forEach((img) => {
+        const lbImg = img as LightboxImageElement;
+        
+        if (lbImg._lb_click_handler) {
+          lbImg.removeEventListener('click', lbImg._lb_click_handler);
+        }
+        
+        // Erst beim KLICK wird die finale sichtbare Bildliste aufgebaut!
+        const handler = () => {
+          images = getVisibleImages();
+          // Finde den Index des angeklickten Bildes in der SICHTBAREN Liste
+          const clickedIndex = images.indexOf(lbImg);
+          
+          if (clickedIndex !== -1) {
+            openLightbox(clickedIndex);
+          }
+        };
+
+        lbImg._lb_click_handler = handler;
+        lbImg.addEventListener('click', handler);
+        lbImg.style.cursor = 'zoom-in';
+      });
+    }
+
+    function renderLightboxImage(index: number) {
+      currentIndex = index;
+      const targetImg = images[index];
+      if (!targetImg || !lbImage || !lbCounter) return;
+
+      lbImage.src = targetImg.src;
+      lbImage.alt = targetImg.alt || '';
+      lbCounter.textContent = `${index + 1} / ${images.length}`;
+    }
+
+    function openLightbox(index: number) {
+      const thumbEl = images[index];
+      if (!lightbox || !lbImage) return;
+
+      disableScroll();
+
+      if (!document.startViewTransition) {
+        renderLightboxImage(index);
+        lightbox.classList.add('open');
+        return;
+      }
+
+      if (thumbEl) thumbEl.style.viewTransitionName = 'lb-active';
+
+      const transition = document.startViewTransition(() => {
+        if (thumbEl) thumbEl.style.viewTransitionName = '';
+        renderLightboxImage(index);
+        lightbox.classList.add('open');
+        lbImage.style.viewTransitionName = 'lb-active';
+      });
+
+      transition.finished.finally(() => {
+        if (thumbEl) thumbEl.style.viewTransitionName = '';
+      });
+    }
+
+    function closeLightbox() {
+      const thumbEl = images[currentIndex];
+      if (!lightbox || !lbImage) return;
+
+      enableScroll();
+
+      if (!document.startViewTransition) {
+        lightbox.classList.remove('open');
+        return;
+      }
+
+      const transition = document.startViewTransition(() => {
+        lbImage.style.viewTransitionName = '';
+        lightbox.classList.remove('open');
+        if (thumbEl) thumbEl.style.viewTransitionName = 'lb-active';
+      });
+
+      transition.finished.finally(() => {
+        if (thumbEl) thumbEl.style.viewTransitionName = '';
+      });
+    }
+
+    function showImage(index: number) {
+      renderLightboxImage(index);
+    }
+
+    closeBtn?.addEventListener('click', closeLightbox);
+    
+    prevBtn?.addEventListener('click', () => {
+      const next = (currentIndex - 1 + images.length) % images.length;
+      showImage(next);
+    });
+    
+    nextBtn?.addEventListener('click', () => {
+      const next = (currentIndex + 1) % images.length;
+      showImage(next);
+    });
+
+    lightbox.onclick = (e) => {
+      if (e.target === lightbox) closeLightbox();
+    };
+
+    window.onkeydown = (e) => {
+      if (!lightbox.classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') showImage((currentIndex - 1 + images.length) % images.length);
+      if (e.key === 'ArrowRight') showImage((currentIndex + 1) % images.length);
+    };
+
+    setupClickHandlers();
+  }
+
+  initLightbox();
+  document.addEventListener('astro:page-load', () => {
+    document.body.style.overflow = '';
+    document.documentElement.style.overflowY = '';
+    initLightbox();
+  });
+</script>
+
+
+
+<style>
+  /* Scrollbar Platz wird erhalten bei Lightbox / Verhindert Layout-Shift */
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-color);
+    z-index: 1000;
+  }
+
+  .lightbox.open {
+    display: flex;
+  }
+
+  .lightbox img {
+    max-width: min(92.5vw);
+    max-height: 99vh;
+    object-fit: contain;
+    display: block;
+    cursor: zoom-out;
+  }
+
+  .lb-btn {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.85;
+    transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+    z-index: 1001;
+  }
+
+  /* Icon Größen */
+  .lb-btn svg {
+    flex-shrink: 0;
+    width: 25px;
+    height: 25px;
+  }
+
+  /* Schließen-Button Position & Größe */
+  #lb-close {
+    top: 1rem;
+    right: 1rem;
+    width: 30px;
+    height: 30px;
+    transform: none;
+  }
+
+  /* Pfeil Icon Hintergrund */
+  #lb-prev, #lb-next {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Pfeil Abstand zum Rand */
+  #lb-prev { left: 1rem; }
+  #lb-next { right: 1rem; }
+
+  #lb-counter {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--muted, #8a8a8a);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
+    }
+  }
+</style>

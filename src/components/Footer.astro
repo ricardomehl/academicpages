@@ -1,0 +1,62 @@
+---
+// src/components/Footer.astro
+const currentYear = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="footer-left">
+    <a href="/legal" class="footer-link">Legal Notice</a>
+    <span class="copyright">© {currentYear}, Ricardo Mehl</span>
+  </div>
+
+  <div class="footer-right">
+    <a 
+      href="https://www.instagram.com/mave_traxis/" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      class="footer-link"
+    >
+      Instagram
+    </a>
+  </div>
+</footer>
+
+
+<style>
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 1.5rem;
+    margin-top: auto; /* Shiftet den Footer nach ganz unten, wenn wenig Content da ist */
+  }
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem; /* Der leichte Abstand zwischen Legal Notice und Copyright */
+  }
+
+  .footer-link {
+    color: var(--text-color);
+    transition: opacity 0.1s ease;
+    text-transform: uppercase;
+  }
+
+  .footer-link:hover {
+    opacity: 0.6;
+  }
+
+  .copyright {
+    color: var(--text-color);
+  }
+
+  /* Responsive Anpassung für sehr schmale Handydisplays */
+  @media (max-width: 480px) {
+    .footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+  }
+</style>

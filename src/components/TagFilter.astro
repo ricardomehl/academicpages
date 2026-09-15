@@ -1,0 +1,85 @@
+---
+interface Props {
+  tags: string[];
+}
+
+const { tags = [] } = Astro.props;
+---
+
+<section class="tag-filter-container">
+  <button class="tag-chip active" data-filter="all">Alle</button>
+  {tags.map((tag) => (
+    <button class="tag-chip" data-filter={tag}>{tag}</button>
+  ))}
+</section>
+
+<!-- Client-seitige Filterlogik (ViewTransitions-ready) -->
+<script>
+  function initTagFilter() {
+    const filterButtons = document.querySelectorAll<HTMLButtonElement>('.tag-chip');
+    const projectCards = document.querySelectorAll<HTMLElement>('.project-card');
+    const projectTextItems = document.querySelectorAll<HTMLElement>('.project-text-item');
+
+    if (filterButtons.length === 0) return;
+
+    filterButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const selectedFilter = button.getAttribute('data-filter');
+
+        // Active state auf Buttons umschalten
+        filterButtons.forEach((btn) => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        // Bildkacheln filtern
+        projectCards.forEach((card) => {
+          const cardTags: string[] = JSON.parse(card.getAttribute('data-tags') || '[]');
+          card.style.display = (selectedFilter === 'all' || cardTags.includes(selectedFilter!)) ? 'flex' : 'none';
+        });
+
+        // Textliste in der Sidebar filtern
+        projectTextItems.forEach((item) => {
+          const itemTags: string[] = JSON.parse(item.getAttribute('data-tags') || '[]');
+          item.style.display = (selectedFilter === 'all' || itemTags.includes(selectedFilter!)) ? 'block' : 'none';
+        });
+      });
+    });
+  }
+
+  // Registriert die Logik bei jedem Astro-Seitenwechsel neu!
+  document.addEventListener('astro:page-load', initTagFilter);
+</script>
+
+<style>
+  .tag-filter-container {
+    grid-column: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    position: sticky;
+    top: 1rem;
+    z-index: 20;
+    padding: 0.5rem 0;
+    background: transparent;
+    position: relative;
+  }
+
+  .tag-chip {
+    background: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .tag-chip:hover,
+  .tag-chip.active {
+    background-color: var(--text-color);
+    color: var(--bg-color);
+    border-color: var(--text-color);
+  }
+</style>

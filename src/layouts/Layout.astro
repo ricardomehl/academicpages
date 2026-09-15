@@ -1,0 +1,174 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import Lightbox from '../components/Lightbox.astro';
+
+
+
+// Importiere den ClientRouter von Astro
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+---
+
+
+<!doctype html> 
+<html lang="en">
+
+	<head>
+		
+		<!-- Alle  -->
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<title>{title}</title> <!-- Relativer Titel für Projekt Detailseiten  -->
+
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.ico" />
+		<meta name="generator" content={Astro.generator} />
+
+		<!-- Preload der lokalen Schriftart für minimale Ladezeiten -->
+        <link
+          rel="preload"
+          href="/fonts/dm-mono-latin-400-normal.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin
+        />
+
+		<!-- Hier aktivieren wir den schnellen Client-seitigen Seitenwechsel -->
+    	<ClientRouter />
+
+
+		
+	<!-- DARKMODE -->
+		<!-- Liest System-Theme vor dem Laden der Seite-->
+		<script is:inline>
+			const getTheme = () => {
+				if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+				return localStorage.getItem('theme');
+				}
+				if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+				return 'dark';
+				}
+				return 'light';
+			};
+		
+			const applyTheme = () => {
+				const theme = getTheme();
+				if (theme === 'dark') {
+				document.documentElement.classList.add('dark');
+				} else {
+				document.documentElement.classList.remove('dark');
+				}
+			};
+
+			// Sofort anwenden
+			applyTheme();
+
+			// Bei jedem Astro-Seitenwechsel das Theme beibehalten
+			document.addEventListener('astro:after-swap', applyTheme);
+		</script>
+				
+	</head>
+
+
+
+
+	<body>
+
+		<!-- Globale Lightbox bereitstellen -->
+		<Lightbox/>
+
+		<Header transition:persist="header"/>
+
+		<!-- Wrapper für Content / Hält Content + Footer auf mindestens 100vh -->
+		<div class="content-wrapper">
+			<main style="padding: 2rem 1.5rem; max-width: 2500px; margin: 0 auto;">
+				<slot />
+			</main>
+
+	
+			<Footer transition:persist="footer"/>
+
+
+			<!-- Scrollweite persistent halten -->
+			<script>
+			document.addEventListener('astro:before-preparation', () => {
+				const currentScrollY = window.scrollY;
+				
+				// Wir suchen den Hauptcontainer
+				const mainLayout = document.querySelector('.projects-layout') as HTMLElement;
+				
+				let targetScrollY = currentScrollY;
+
+				if (mainLayout) {
+				// offsetTop gibt uns den vertikalen Abstand vom Seitenanfang bis zur Oberkante von <main>
+				const mainTop = mainLayout.offsetTop;
+
+				// Wenn wir weiter gescrollt sind als der Anfang des Main-Bereichs, 
+				// deckeln (clampen) wir die Scrollposition exakt auf die Oberkante von <main>.
+				if (currentScrollY > mainTop) {
+					targetScrollY = mainTop;
+				}
+				}
+
+				// Setze die berechnete Scrollposition nach dem Laden der neuen Seite
+				document.addEventListener('astro:after-swap', () => {
+				window.scrollTo({
+					top: targetScrollY,
+					behavior: 'instant' // Verhindert sichtbares Ruckeln/Mitzittern
+				});
+				}, { once: true });
+			});
+			</script>
+
+
+			<!-- Darkmode: Click Event auf Button binden -->
+			<script>
+			function setupThemeToggle() {
+				const toggleBtn = document.getElementById('theme-toggle');
+				if (!toggleBtn) return;
+
+				// Verhindert doppelte Listener auf demselben Element
+				toggleBtn.replaceWith(toggleBtn.cloneNode(true));
+				const newToggleBtn = document.getElementById('theme-toggle');
+
+				newToggleBtn?.addEventListener('click', () => {
+				const isDark = document.documentElement.classList.toggle('dark');
+				localStorage.setItem('theme', isDark ? 'dark' : 'light');
+				});
+			}
+
+			// Bindet den Klick-Listener bei jedem Seitenwechsel neu ein
+			document.addEventListener('astro:page-load', setupThemeToggle);
+			</script>
+
+		</div>
+
+	</body>
+</html>
+
+
+
+<style>
+
+/* Wrapper für Content + Footer um 100vh zu garantieren */
+.content-wrapper {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Drückt den Footer innerhalb des Wrappers nach unten, falls der Main-Inhalt kurz ist */
+.content-wrapper main {
+  flex: 1;
+  width: 100%; 
+}
+
+</style>

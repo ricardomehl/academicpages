@@ -1,0 +1,124 @@
+---
+import DarkmodeIcon from '../assets/Icons/darkmode.svg';
+import MainLogo from '../assets/Icons/logo.svg';
+---
+
+<!-- Header mit Logo, Intro-Text und Theme-Switch/Navigation -->
+<header class="main-header">
+  
+  <!-- Logo Links -->
+  <div class="logo-wrapper">
+    <a href="/" aria-label="Startseite" class="logo-link">
+      <MainLogo width="auto" height="100" class="main-logo" />
+    </a>
+  </div>
+
+  <!-- Intro Text Mitte -->
+  <div class="intro-wrapper">
+    <p class="intro-text">
+      Ricardo Mehl ist ein Kommunikationsdesigner mit Fokus auf visuelle Systeme, Typografie und digitale Medien. Entwicklung von nachhaltigen Gestaltungsansätzen für Marken und Kultur.
+    </p>
+  </div>
+
+  <!-- Navigation + Theme-Switch Rechts -->
+  <div class="actions-wrapper">
+    <nav class="nav-links">
+      <a href="/info" class="nav-link">Info</a>
+      <a href="mailto:ricardomehl@gmx.de" class="nav-link">Kontakt</a>
+    </nav>
+    <button id="theme-toggle" aria-label="Theme umschalten" class="icon-btn">
+      <DarkmodeIcon width="20" height="20" class="theme-icon" />
+    </button>
+  </div>
+
+</header>
+
+
+
+
+
+<style>
+  .main-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: flex-start;
+    gap: 3rem; /* Abstand Intro Text zu Logo */
+    padding: var(--site-padding) var(--site-padding) 3rem var(--site-padding);
+  }
+
+  /* Logo */
+  .logo-wrapper {
+    display: flex;
+    align-items: flex-start;
+    flex-shrink: 0;
+  }
+
+  .logo-link {
+    display: flex;
+    align-items: center;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Intro Text Styling */
+  .intro-wrapper {
+    max-width: 600px; /* Begrenzt die Zeilenlänge für optimale Lesbarkeit */
+  }
+
+  .intro-text {
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--text-color);
+    opacity: 1;
+    margin: 0;
+  }
+
+  /* Navigation & Theme Switch Rechts */
+  .actions-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem; /* Abstand zwischen Info, Kontakt und Icon */
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem; /* Abstand zwischen Info und Kontakt */
+  }
+
+  .nav-link {
+    color: var(--text-color);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: opacity 0.2s ease;
+    text-transform: uppercase;
+  }
+
+  .nav-link:hover {
+    opacity: 0.6;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Responsive Layout für Mobilgeräte */
+  @media (max-width: 768px) {
+    .main-header {
+      grid-template-columns: 1fr auto;
+      gap: 1.5rem;
+      padding: 1.5rem 1rem 2rem 1rem;
+    }
+
+    .intro-wrapper {
+      grid-column: 1 / -1; /* Schiebt den Text auf Handys unter das Logo */
+      order: 3;
+    }
+  }
+</style>
